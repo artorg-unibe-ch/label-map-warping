@@ -44,7 +44,7 @@ class ArteryWarping():
         return disp_array, path_to_disp_mat
 
     def _resample_img_create_matlab(self, sitk_img, target_spacing=[0.2, 0.2, 0.2], target_extent=None,
-                                    description='resampled', target_label=1):
+                                    description='resampled', matlab_label_id=1):
         # resample image
         img_resampled = utils.resample_image(sitk_img, target_spacing, target_extent)
         # save image
@@ -56,8 +56,8 @@ class ArteryWarping():
         # create matlab array
         print("  -- Creating matlab array")
         coord_array, value_array = utils.get_coord_value_array_for_image(img_resampled, flat=False)
-        # recode any non zero value to 1
-        value_array[value_array!=0] = target_label
+        # recode any non zero value to matlab_label_id
+        value_array[value_array!=0] = matlab_label_id
         matlab_array =  {'coordinates': coord_array.astype(np.float32),
                          'values': value_array.astype(np.int8)}
         # save matlab array
@@ -135,12 +135,12 @@ class ArteryWarping():
 
     @staticmethod
     def _extract_structure_bounds_from_coords_and_displacement(coords_array, values_array, displacement_array,
-                                                              label_id=1):
+                                                              matlab_label_id=1):
         displaced_coords_array = coords_array + displacement_array
         displaced_coords_array_flat = displaced_coords_array.reshape(np.prod(displaced_coords_array.shape[:3]),
                                                                      displaced_coords_array.shape[3])
         values_array_flat = values_array.reshape(np.prod(values_array.shape))
-        displaced_coords_array_flat_lumen = displaced_coords_array_flat[np.where(values_array_flat == label_id)]
+        displaced_coords_array_flat_lumen = displaced_coords_array_flat[np.where(values_array_flat == matlab_label_id)]
         image_ref_min_pos = displaced_coords_array_flat_lumen.min(axis=0)
         image_ref_max_pos = displaced_coords_array_flat_lumen.max(axis=0)
         return image_ref_min_pos, image_ref_max_pos
@@ -155,7 +155,8 @@ class ArteryWarping():
         image_ref_max_pos = image_ref_coord_array_flat_lumen.max(axis=0)
         return image_ref_min_pos, image_ref_max_pos
 
-    def _get_extent_all_from_displacement(self, description='resampled', target_spacing=[0.2, 0.2, 0.2], label_id=1):
+    def _get_extent_all_from_displacement(self, description='resampled', target_spacing=[0.2, 0.2, 0.2], 
+                                          label_id=1, matlab_label_id=1):
         # get structure bounds in straightened configuration
         ref_img, path_to_ref_image = self._get_ref_image(description=description, target_spacing=target_spacing)
         image_ref_min_pos, image_ref_max_pos = self._extract_structure_bounds_from_labelmap(ref_img, label_id=label_id)
@@ -166,7 +167,8 @@ class ArteryWarping():
         path_to_coords_values = dir.joinpath(coords_values_name)
         coords_array, values_array = utils.load_matlab_array(path_to_coords_values.as_posix(),['coordinates', 'values'])
         image_def_min_pos, image_def_max_pos = \
-            self._extract_structure_bounds_from_coords_and_displacement(coords_array, values_array, disp_array, label_id=label_id)
+            self._extract_structure_bounds_from_coords_and_displacement(coords_array, values_array, disp_array, 
+                                                                        matlab_label_id=matlab_label_id)
         # combine extents
         all_extents = np.vstack([image_ref_min_pos, image_ref_max_pos, image_def_min_pos, image_def_max_pos])
         extent_all = np.vstack([all_extents.min(axis=0), all_extents.max(axis=0)])
@@ -187,9 +189,10 @@ class ArteryWarping():
                                                path_to_surface_mesh=path_surface_mesh_stl.as_posix(), label_id=label_id)
 
 
-    def resample_oct_orig(self, target_spacing=[0.2, 0.2, 0.2]):
+    def resample_oct_orig(self, target_spacing=[0.2, 0.2, 0.2], matlab_label_id=1):
         oct_img_orig = sitk.ReadImage(self.path_to_oct_image_orig.as_posix())
-        self._resample_img_create_matlab(oct_img_orig, target_spacing=target_spacing, description='resampled')
+        self._resample_img_create_matlab(oct_img_orig, target_spacing=target_spacing, description='resampled', 
+                                         matlab_label_id=matlab_label_id)
 
     def create_artifacts(self, target_spacing, description='resampled'):
         self._create_centerline(centerline_name='OCTCenterLine', target_spacing=target_spacing, description=description)
@@ -202,11 +205,11 @@ class ArteryWarping():
     def resize_from_displacement(self, padding=[0.5, 0.5, 0.5],
                                  reference_description='resampled', reference_spacing=[0.2, 0.2, 0.2],
                                  target_description='resized_resampled', target_spacing=[0.2, 0.2, 0.2],
-                                 label_id=1 ):
+                                 label_id=1, matlab_label_id=1):
         extent_all = self._get_extent_all_from_displacement(description=reference_description, target_spacing=reference_spacing,
-                                                            label_id=label_id)
+                                                            label_id=label_id, matlab_label_id=matlab_label_id)
         img_oct = sitk.ReadImage(self.path_to_oct_image_orig.as_posix())
         padding = np.array(padding)
         extent_all_pad = np.vstack([extent_all[0] - padding, extent_all[1] + padding])
         self._resample_img_create_matlab(img_oct, target_spacing=target_spacing, target_extent=extent_all_pad,
-                                        description=target_description)
+                                         description=target_description, matlab_label_id=matlab_label_id)
