@@ -13,7 +13,17 @@ class ArteryWarping():
 
     def set_oct_image(self, path_to_oct_image):
         self.path_to_oct_image_orig = pl.Path(path_to_oct_image)
-        self.oct_base_name = self.path_to_oct_image_orig.name.split('.')[0]
+        self.oct_base_name = pl.Path(path_to_oct_image).name.split('.')[0]
+        ref_image = sitk.ReadImage(path_to_oct_image.as_posix())
+        if not ref_image.GetDirection() == (1,0,0,0,1,0,0,0,1):
+            print("Reference image '%s' does not have standard orientation."%path_to_oct_image)
+            name_img_standard_orientation = self.oct_base_name + '_stdorient.mha'
+            path_img_standard_orientation = self.path_to_oct_image_orig.parent.joinpath(name_img_standard_orientation)
+            print("Using image with standard orientation as reference '%s'"%path_img_standard_orientation)
+            if not path_img_standard_orientation.exists():
+                ref_image.SetDirection([1,0,0,0,1,0,0,0,1])
+                sitk.WriteImage(ref_image, path_img_standard_orientation.as_posix(), True)
+            self.path_to_oct_image_orig = path_img_standard_orientation
 
     def _create_file_name(self, description, resolution, ext='mha'):
         name = "%s_%s_res-%.2f-%.2f-%.2f.%s" % (self.oct_base_name, description,
@@ -93,6 +103,7 @@ class ArteryWarping():
         disp_image = sitk.GetImageFromArray(disp_array, isVector=True)
         disp_image.SetOrigin(ref_img.GetOrigin())
         disp_image.SetSpacing(ref_img.GetSpacing())
+        disp_image.SetDirection(ref_img.GetDirection())
         #-- saving disp image
         displacement_img_name = self._create_file_name(description=description + '_displacement',
                                                        resolution=target_spacing, ext='mha')

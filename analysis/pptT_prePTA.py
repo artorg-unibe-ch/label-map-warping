@@ -8,7 +8,7 @@ aw = ArteryWarping(output_path=base_path)
 aw.set_oct_image(path_to_oct_image=config.analysis_data_dir.joinpath('ptT_prePTA_compressed.mha'))
 
 #%% (1) Downsample original OCT image & produce Matlab output
-#aw.resample_oct_orig(target_spacing=[0.2, 0.2, 0.2], matlab_label_id=1)
+aw.resample_oct_orig(target_spacing=[0.2, 0.2, 0.2], matlab_label_id=1)
 
 #%% (2) Resize original OCT image based on displacement field
 #aw.resize_from_displacement(padding=[0.5, 0.5, 0.5],
@@ -23,5 +23,5 @@ aw.set_oct_image(path_to_oct_image=config.analysis_data_dir.joinpath('ptT_prePTA
 
 
 #%% (3) Warp image based on displacement field
-aw.create_artifacts(target_spacing=[0.2, 0.2, 0.2], description='resampled')
+#aw.create_artifacts(target_spacing=[0.2, 0.2, 0.2], description='resampled')
 #aw.create_artifacts(target_spacing=[0.1, 0.1, 0.1], description='resized_resampled')
